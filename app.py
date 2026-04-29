@@ -159,49 +159,10 @@ try:
         row = df[df['word'] == option].iloc[0]
         emoji_value = str(row['emoji']).strip() if pd.notna(row['emoji']) else ""
         display = get_display_element(option, emoji_value)
-        is_emoji = len(display) <= 2 and ord(display[0]) > 127  # Unicode emoji check
         
         col_idx = i % 2
         with cols[col_idx]:
-            if is_emoji:
-                button_html = f"""
-                    <button style="
-                        width: 100%;
-                        height: 140px;
-                        font-size: 70px;
-                        border: 3px solid #e2e8f0;
-                        border-radius: 15px;
-                        background-color: white;
-                        cursor: pointer;
-                        transition: all 0.2s ease;
-                        margin-bottom: 20px;
-                    " onclick="document.getElementById('btn_{i}').click()">
-                        {display}
-                    </button>
-                """
-            else:
-                button_html = f"""
-                    <button style="
-                        width: 100%;
-                        height: 140px;
-                        font-size: 60px;
-                        border: 3px solid #e2e8f0;
-                        border-radius: 15px;
-                        background: linear-gradient(135deg, #0369a1 0%, #06b6d4 100%);
-                        color: white;
-                        font-weight: bold;
-                        cursor: pointer;
-                        transition: all 0.2s ease;
-                        margin-bottom: 20px;
-                    " onclick="document.getElementById('btn_{i}').click()">
-                        {display}
-                    </button>
-                """
-            
-            st.markdown(button_html, unsafe_allow_html=True)
-            
-            # Hidden button for logic
-            if st.button("", key=f"btn_{i}"):
+            if st.button(display, key=f"btn_{i}", use_container_width=True, help=f"Click for {option}"):
                 if option == st.session_state.current_word['en']:
                     st.session_state.status = "correct"
                 else:
