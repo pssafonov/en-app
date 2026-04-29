@@ -4,23 +4,50 @@ import random
 from gtts import gTTS
 import io
 import base64
-from st_clickable_images import clickable_images
 
 st.set_page_config(page_title="English for Kids", page_icon="🇬🇧", layout="centered")
 
-# Сохраняем твой любимый визуальный стиль
+# Ваш любимый визуальный стиль
 st.markdown("""
     <style>
     [data-testid="stAppViewContainer"] { background-color: #f0f9ff; }
-    .main-title { text-align: center; color: #1e293b; font-family: 'Comic Sans MS', cursive; font-size: 45px; }
+    .main-title { text-align: center; color: #1e293b; font-family: 'Comic Sans MS', cursive; font-size: 45px; margin-bottom:0; }
     .hint { text-align: center; color: #64748b; font-size: 18px; margin-bottom: 10px; }
-    div[style*="flex-direction: column;"] { align-items: center; }
+    
+    /* Контейнер для картинки, чтобы они были одинаковыми */
+    .img-card {
+        height: 200px;
+        border-radius: 20px 20px 0 0;
+        overflow: hidden;
+        border: 4px solid #fff;
+        background-color: white;
+    }
+    .img-card img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain; /* Картинка видна полностью */
+    }
+    
+    /* Кнопка под картинкой */
+    .stButton>button {
+        border-radius: 0 0 20px 20px !important;
+        border: none !important;
+        background-color: #ffffff !important;
+        color: #0369a1 !important;
+        font-weight: bold !important;
+        height: 50px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    }
+    .stButton>button:hover {
+        background-color: #0369a1 !important;
+        color: white !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSEpRq2SJhqJb0DvIx_XKwXJXCOE2h9z9tvWYdpnZNRqIIgj65FXymJnwGkavxDPo1k83wkkQtbjeAk/pub?output=csv"
 
-@st.cache_data(ttl=5) # Обновляем данные чаще
+@st.cache_data(ttl=5)
 def load_data(url):
     return pd.read_csv(url)
 
@@ -44,14 +71,12 @@ if 'status' not in st.session_state:
 try:
     df = load_data(SHEET_URL)
     
-    # Логика выбора нового слова (срабатывает в начале или при нажатии NEXT)
     if st.session_state.current_word is None:
         target_row = df.sample(n=1).iloc[0]
         st.session_state.current_word = {
             'en': str(target_row['word']).strip(),
             'ua': str(target_row['translation']).strip()
         }
-        # Подбираем варианты
         all_words = df['word'].unique().tolist()
         target_en = st.session_state.current_word['en']
         if target_en in all_words: all_words.remove(target_en)
@@ -69,38 +94,31 @@ try:
     if st.button("🔊 PLAY SOUND", type="primary", use_container_width=True):
         play_audio(target_word)
 
-    # Собираем ссылки на картинки (используем стабильный источник)
-    images_urls = [
-        f"https://loremflickr.com/400/400/{opt.lower().replace(' ', ',')}?lock={i+10}" 
-        for i, opt in enumerate(st.session_state.options)
-    ]
+    # Отрисовка карточек
+    cols = st.columns(3)
+    for i, option in enumerate(st.session_state.options):
+        # Используем loremflickr, но через стандартный st.image
+        img_url = f"https://loremflickr.com/400/400/{option.lower().replace(' ', ',')}?random={st.session_state.current_word['en']}_{i}"
+        
+        with cols[i]:
+            # Сама карточка
+            st.markdown(f'<div class="img-card"><img src="{img_url}"></div>', unsafe_allow_html=True)
+            # Кнопка выбора
+            if st.button("Pick me!", key=f"btn_{i}"):
+                if option == target_word:
+                    st.session_state.status = "correct"
+                else:
+                    st.session_state.status = "wrong"
 
-    # Кликабельные изображения
-    clicked = clickable_images(
-        images_urls,
-        titles=st.session_state.options,
-        div_style={"display": "flex", "justify-content": "center", "flex-wrap": "wrap", "gap": "20px"},
-        img_style={"margin": "5px", "width": "200px", "height": "200px", "border-radius": "20px", "border": "5px solid #fff", "object-fit": "cover", "background": "white", "cursor": "pointer"},
-    )
-
-    # Если нажали на картинку
-    if clicked > -1:
-        selected_word = st.session_state.options[clicked]
-        if selected_word == target_word:
-            st.session_state.status = "correct"
-        else:
-            st.session_state.status = "wrong"
-
-    # Реакция на ответ
     if st.session_state.status == "correct":
         st.balloons()
         st.success(f"YES! 🎉 It's {target_word}")
         if st.button("NEXT WORD ➡️", use_container_width=True, type="primary"):
-            st.session_state.current_word = None # Сброс для выбора нового слова
+            st.session_state.current_word = None
             st.session_state.status = None
             st.rerun()
     elif st.session_state.status == "wrong":
         st.error("Try again! ❌")
 
 except Exception as e:
-    st.error(f"Waiting for data or error: {e}")
+    st.error(f"Waiting for data... {e}")
