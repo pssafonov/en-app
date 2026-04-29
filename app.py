@@ -13,7 +13,7 @@ st.markdown("""
         font-size: 20px;
     }
     </style>
-    """, unsafe_allow_status_code=True)
+    """, unsafe_allow_html=True)
 
 st.title("🌟 My English Learning App")
 
