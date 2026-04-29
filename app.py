@@ -6,58 +6,47 @@ import io
 
 st.set_page_config(page_title="English Kids Game", page_icon="🇬🇧", layout="centered")
 
-# Мощный CSS для создания красивых и одинаковых карточек
+# Чиним интерфейс через CSS (без хаков в кнопках)
 st.markdown("""
     <style>
     [data-testid="stAppViewContainer"] { background-color: #fefce8; }
     
-    /* Сетка для карточек */
-    .cards-container {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 20px;
-        margin-top: 30px;
-    }
-
-    /* Стили для кнопки-карточки */
-    .stButton>button {
-        padding: 0 !important;
-        border-radius: 20px !important;
-        border: 4px solid #e2e8f0 !important;
-        background-color: white !important;
-        transition: 0.3s !important;
-        height: 320px !important; /* Фиксированная высота всей карточки */
-        width: 100% !important;
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        overflow: hidden !important;
-    }
-
-    /* Эффект при наведении */
-    .stButton>button:hover {
-        border: 4px solid #facc15 !important;
-        transform: scale(1.03);
-        box-shadow: 0 10px 15px rgba(0,0,0,0.1);
-    }
-
-    /* Стиль для картинки внутри кнопки */
-    .card-img {
-        width: 100%;
-        height: 250px; /* Фиксированная высота картинки */
-        object-fit: cover; /* Картинка обрезается, чтобы заполнить квадрат */
-    }
-
-    /* Стиль для текста под картинкой */
-    .card-text {
-        font-size: 22px;
-        font-weight: bold;
-        color: #1e293b;
-        margin-top: 15px;
-        font-family: 'Comic Sans MS', cursive;
+    /* Фиксируем высоту контейнера с картинкой, чтобы кнопки не прыгали */
+    [data-testid="stVerticalBlock"] > div:has(img) {
+        height: 250px !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        border-radius: 15px;
+        background-color: white;
+        border: 2px solid #e2e8f0;
     }
     
-    .main-title { text-align: center; color: #1e293b; font-family: 'Comic Sans MS', cursive; margin-bottom: 0;}
+    img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover; /* Обрезает картинку ровно под квадрат */
+    }
+
+    /* Стилизуем кнопки под картинками */
+    .stButton>button {
+        width: 100%;
+        height: 60px;
+        font-size: 20px !important;
+        font-weight: bold !important;
+        border-radius: 15px !important;
+        background-color: #ffffff !important;
+        border: 3px solid #0369a1 !important;
+        color: #0369a1 !important;
+    }
+    
+    .stButton>button:hover {
+        background-color: #0369a1 !important;
+        color: white !important;
+    }
+
+    .main-title { text-align: center; color: #1e293b; font-family: 'Comic Sans MS', cursive; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -83,16 +72,12 @@ def next_word():
 
 try:
     df = load_data(SHEET_URL)
-    
-    # Боковая панель (оставляем без изменений)
-    st.sidebar.title("Settings")
     categories = ["All Topics"] + sorted(list(df['category'].dropna().unique()))
     selected_cat = st.sidebar.selectbox("Choose a topic:", categories)
     
     filtered_df = df if selected_cat == "All Topics" else df[df['category'] == selected_cat]
     filtered_df = filtered_df.reset_index(drop=True)
 
-    # Выбор слова
     random.seed(st.session_state.count)
     random_idx = random.randint(0, len(filtered_df) - 1)
     target_row = filtered_df.iloc[random_idx]
@@ -100,14 +85,12 @@ try:
     target_ua = str(target_row['translation']).strip()
 
     st.markdown("<h1 class='main-title'>Listen and Pick! 🎧</h1>", unsafe_allow_html=True)
-    st.write(f"<p style='text-align:center; color:#64748b;'>Hint for Dad: {target_ua}</p>", unsafe_allow_html=True)
+    st.write(f"<p style='text-align:center; color:#64748b;'>Hint: {target_ua}</p>", unsafe_allow_html=True)
     
-    # Плеер
     audio_data = get_audio(target_word)
     if audio_data:
         st.audio(audio_data, format="audio/mp3")
 
-    # Готовим 3 варианта
     all_words = df['word'].unique().tolist()
     if target_word in all_words: all_words.remove(target_word)
     wrong_words = random.sample(all_words, 2)
@@ -116,29 +99,22 @@ try:
     random.seed(st.session_state.count + 7)
     random.shuffle(options)
 
-    # ОТОБРАЖАЕМ КАРТОЧКИ (HTML + CSS внутри кнопок Streamlit)
-    # Используем проверенный источник картинок
-    
+    # Рисуем колонки
     cols = st.columns(3)
     for i, option in enumerate(options):
-        # Генерируем ссылку. random_idx нужен, чтобы картинки были разными
+        # Генерируем ссылку на картинку
         img_url = f"https://loremflickr.com/400/400/{option.lower()}?random={st.session_state.count}_{i}"
         
-        # HTML код, который будет лежать внутри кнопки
-        button_content = f"""
-            <img src="{img_url}" class="card-img">
-            <div class="card-text">Pick me!</div>
-        """
-        
         with cols[i]:
-            # Ключевой момент: мы кладем HTML внутрь label кнопки
-            if st.button(button_content, key=f"btn_{i}_{st.session_state.count}", unsafe_allow_html=True):
+            st.image(img_url) # Картинка сверху
+            # Кнопка строго под картинкой
+            if st.button(f"Choose", key=f"btn_{i}_{st.session_state.count}"):
                 if option == target_word:
                     st.balloons()
-                    st.success(f"YES! 🎉")
+                    st.success("YES! 🎉")
                     st.button("NEXT ➡️", on_click=next_word, type="primary")
                 else:
                     st.error("Try again! ❌")
 
 except Exception as e:
-    st.error(f"Error: {e}")
+    st.error(f"Something went wrong: {e}")
