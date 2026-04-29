@@ -16,7 +16,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # Ссылка на вашу таблицу (CSV)
-sheet_url = "ВАША_ССЫЛКА_НА_CSV_ЗДЕСЬ"
+sheet_url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSEpRq2SJhqJb0DvIx_XKwXJXCOE2h9z9tvWYdpnZNRqIIgj65FXymJnwGkavxDPo1k83wkkQtbjeAk/pub?output=csv"
 
 @st.cache_data(ttl=60)
 def load_data(url):
