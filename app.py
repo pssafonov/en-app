@@ -4,38 +4,18 @@ import random
 from gtts import gTTS
 import io
 import base64
+from st_clickable_images import clickable_images
 
-st.set_page_config(page_title="Kids English", page_icon="🇬🇧", layout="centered")
+st.set_page_config(page_title="English for Kids", page_icon="🇬🇧", layout="centered")
 
-# Чистый и надежный CSS
+# Наводим красоту
 st.markdown("""
     <style>
-    [data-testid="stAppViewContainer"] { background-color: #fefce8; }
-    
-    /* Контейнер для картинки */
-    .img-container {
-        height: 200px;
-        overflow: hidden;
-        border-radius: 15px;
-        border: 2px solid #e2e8f0;
-        margin-bottom: 10px;
-    }
-    
-    .img-container img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
-    .main-title { text-align: center; color: #1e293b; font-family: 'Comic Sans MS', cursive; font-size: 40px; margin-bottom: 0px; }
-    .hint-text { text-align: center; color: #64748b; margin-bottom: 20px; }
-    
-    /* Стиль кнопки выбора */
-    .stButton>button {
-        width: 100%;
-        border-radius: 12px !important;
-        font-weight: bold !important;
-    }
+    [data-testid="stAppViewContainer"] { background-color: #f0f9ff; }
+    .main-title { text-align: center; color: #1e293b; font-family: 'Comic Sans MS', cursive; font-size: 45px; }
+    .hint { text-align: center; color: #64748b; font-size: 18px; margin-bottom: 10px; }
+    /* Центрируем блок с картинками */
+    div[style*="flex-direction: column;"] { align-items: center; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -51,40 +31,28 @@ def play_audio(text):
     tts.write_to_fp(fp)
     audio_bytes = fp.getvalue()
     b64 = base64.b64encode(audio_bytes).decode()
-    # Трюк для автоплея через HTML
     md = f'<audio autoplay="true"><source src="data:audio/mp3;base64,{b64}" type="audio/mp3"></audio>'
     st.markdown(md, unsafe_allow_html=True)
 
 if 'count' not in st.session_state:
     st.session_state.count = 0
-if 'play_now' not in st.session_state:
-    st.session_state.play_now = False
-
-def next_word():
-    st.session_state.count += 1
-    st.session_state.play_now = False
+if 'status' not in st.session_state:
+    st.session_state.status = None
 
 try:
     df = load_data(SHEET_URL)
-    filtered_df = df.reset_index(drop=True)
-
+    
     # Выбор слова
     random.seed(st.session_state.count)
-    random_idx = random.randint(0, len(filtered_df) - 1)
-    target_row = filtered_df.iloc[random_idx]
-    target_word = str(target_row['word']).strip()
-    target_ua = str(target_row['translation']).strip()
+    random_idx = random.randint(0, len(df) - 1)
+    target_word = str(df.iloc[random_idx]['word']).strip()
+    target_ua = str(df.iloc[random_idx]['translation']).strip()
 
     st.markdown(f"<h1 class='main-title'>Listen! 🎧</h1>", unsafe_allow_html=True)
-    st.markdown(f"<p class='hint-text'>Подсказка: {target_ua}</p>", unsafe_allow_html=True)
+    st.markdown(f"<p class='hint'>Підказка для тата: <b>{target_ua}</b></p>", unsafe_allow_html=True)
 
-    # Кнопка для запуска звука (решает проблему блокировки браузером)
-    col_audio, _ = st.columns([1, 3])
-    with col_audio:
-        if st.button("🔊 Слушать"):
-            st.session_state.play_now = True
-
-    if st.session_state.play_now:
+    # Кнопка звука
+    if st.button("🔊 PLAY SOUND", type="primary", use_container_width=True):
         play_audio(target_word)
 
     # Готовим варианты
@@ -95,20 +63,40 @@ try:
     random.seed(st.session_state.count + 7)
     random.shuffle(options)
 
-    # Отрисовка карточек
-    cols = st.columns(3)
-    for i, option in enumerate(options):
-        img_url = f"https://loremflickr.com/300/300/{option.lower()}?random={st.session_state.count}_{i}"
-        with cols[i]:
-            # Используем HTML контейнер для картинки
-            st.markdown(f'<div class="img-container"><img src="{img_url}"></div>', unsafe_allow_html=True)
-            if st.button("Это?", key=f"btn_{i}_{st.session_state.count}"):
-                if option == target_word:
-                    st.balloons()
-                    st.success("Правильно! 🎉")
-                    st.button("ДАЛЬШЕ ➡️", on_click=next_word)
-                else:
-                    st.error("Нет ❌")
+    # Собираем список URL для картинок
+    # Используем Unsplash Source для более предсказуемых результатов
+    images_urls = [f"https://images.unsplash.com/photo-1?w=400&h=400&fit=crop&q=80&{opt}" 
+                   if "http" not in opt else opt for opt in options]
+    
+    # Чтобы Unsplash находил именно то, что нужно:
+    images_urls = [f"https://loremflickr.com/400/400/{opt.lower()}?random={st.session_state.count}_{i}" for i, opt in enumerate(options)]
+
+    # Отображаем картинки как кнопки
+    clicked = clickable_images(
+        images_urls,
+        titles=[f"Option {i}" for i in range(len(options))],
+        div_style={"display": "flex", "justify-content": "center", "flex-wrap": "wrap", "gap": "20px"},
+        img_style={"margin": "10px", "width": "250px", "height": "250px", "border-radius": "20px", "border": "5px solid #fff", "object-fit": "contain", "background": "white", "cursor": "pointer"},
+    )
+
+    # Обработка нажатия
+    if clicked > -1:
+        selected_word = options[clicked]
+        if selected_word == target_word:
+            st.session_state.status = "correct"
+        else:
+            st.session_state.status = "wrong"
+
+    # Вывод результата
+    if st.session_state.status == "correct":
+        st.balloons()
+        st.success(f"YES! It's {target_word}! 🎉")
+        if st.button("NEXT WORD ➡️", use_container_width=True):
+            st.session_state.count += 1
+            st.session_state.status = None
+            st.rerun()
+    elif st.session_state.status == "wrong":
+        st.error("Try again! ❌")
 
 except Exception as e:
-    st.error(f"Ошибка: {e}")
+    st.error(f"Waiting for data... {e}")
