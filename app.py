@@ -6,49 +6,83 @@ import io
 import base64
 import time
 
-st.set_page_config(page_title="English for Kids", page_icon="🇬🇧", layout="centered")
+st.set_page_config(page_title="English for Kids", page_icon="🇬🇧", layout="wide")
 
-# Финальный дизайн: огромные эмодзи и сочные цвета
+# Design with large emojis and vibrant colors
 st.markdown("""
     <style>
     [data-testid="stAppViewContainer"] { background-color: #f0f9ff; }
-    .main-title { text-align: center; color: #1e293b; font-family: 'Comic Sans MS', cursive; font-size: 45px; margin-bottom:0; }
-    .hint { text-align: center; color: #64748b; font-size: 18px; margin-bottom: 10px; }
+    .main-title { text-align: center; color: #1e293b; font-family: 'Comic Sans MS', cursive; font-size: 45px; margin-bottom: 10px; }
+    .hint { text-align: center; color: #64748b; font-size: 16px; margin-bottom: 20px; }
     
     .emoji-card {
-        height: 200px;
-        font-size: 100px;
+        height: 140px;
+        font-size: 70px;
         text-align: center;
-        border-radius: 20px 20px 0 0;
+        border-radius: 15px;
         background-color: white;
-        border: 4px solid #fff;
+        border: 3px solid #e2e8f0;
         display: flex;
         align-items: center;
         justify-content: center;
-        margin-bottom: 0px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
     
-    /* Стиль для букв-заглушек, если нет эмодзи */
+    .emoji-card:hover {
+        border-color: #0369a1;
+        box-shadow: 0 4px 12px rgba(3, 105, 161, 0.2);
+        transform: scale(1.05);
+    }
+    
+    .emoji-card:active {
+        transform: scale(0.95);
+    }
+    
     .letter-placeholder {
-        background-color: #e2e8f0;
-        color: #475569;
-        font-family: sans-serif;
+        background: linear-gradient(135deg, #0369a1 0%, #06b6d4 100%);
+        color: white;
+        font-family: Arial, sans-serif;
         font-weight: bold;
+        font-size: 60px;
+        border-radius: 15px;
     }
 
-    .stButton>button {
-        border-radius: 0 0 20px 20px !important;
-        border: none !important;
-        background-color: #ffffff !important;
-        color: #0369a1 !important;
-        font-weight: bold !important;
-        height: 50px;
-        font-size: 18px;
+    .emoji-button {
+        width: 100%;
+        padding: 0;
+        border: none;
+        background: none !important;
     }
-    .stButton>button:hover {
+    
+    .stButton>button {
+        border-radius: 10px !important;
+        border: none !important;
+        font-weight: bold !important;
+        font-size: 16px;
+    }
+    
+    .play-button {
+        background-color: #10b981 !important;
+        color: white !important;
+        height: 50px;
+        margin-bottom: 20px;
+    }
+    
+    .play-button:hover {
+        background-color: #059669 !important;
+    }
+    
+    .next-button {
         background-color: #0369a1 !important;
         color: white !important;
+        height: 50px;
+        margin-top: 20px;
+    }
+    
+    .next-button:hover {
+        background-color: #0284c7 !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -58,10 +92,16 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSEpRq2SJhqJb0DvIx_
 @st.cache_data(ttl=5)
 def load_data(url):
     df = pd.read_csv(url)
-    # Если колонки emoji нет, создаем пустую
     if 'emoji' not in df.columns:
         df['emoji'] = ""
     return df
+
+def get_display_element(word, emoji_value):
+    """Returns emoji from sheet or first letter placeholder"""
+    if pd.notna(emoji_value) and str(emoji_value).strip() != "":
+        return str(emoji_value).strip()
+    else:
+        return word[0].upper()
 
 def play_audio(text):
     tts = gTTS(text=text, lang='en')
@@ -69,9 +109,8 @@ def play_audio(text):
     tts.write_to_fp(fp)
     audio_bytes = fp.getvalue()
     b64 = base64.b64encode(audio_bytes).decode()
-    # Уникальный ключ для аудио, чтобы обмануть кэш браузера
     audio_html = f"""
-        <audio autoplay key="{time.time()}">
+        <audio autoplay>
             <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
         </audio>
     """
@@ -96,47 +135,90 @@ try:
         }
         all_words = df['word'].unique().tolist()
         target_en = st.session_state.current_word['en']
-        if target_en in all_words: all_words.remove(target_en)
-        wrong_words = random.sample(all_words, min(len(all_words), 2))
+        if target_en in all_words: 
+            all_words.remove(target_en)
+        wrong_words = random.sample(all_words, min(len(all_words), 5))
         opts = [target_en] + wrong_words
         random.shuffle(opts)
         st.session_state.options = opts
 
     st.markdown("<h1 class='main-title'>Listen and Pick! 🎧</h1>", unsafe_allow_html=True)
-    st.markdown(f"<p class='hint'>Подсказка для папы: <b>{st.session_state.current_word['ua']}</b></p>", unsafe_allow_html=True)
+    st.markdown(f"<p class='hint'>Hint: <b>{st.session_state.current_word['ua']}</b></p>", unsafe_allow_html=True)
 
-    if st.button("🔊 СЛУШАТЬ СЛОВО (PLAY)", type="primary", use_container_width=True):
-        play_audio(st.session_state.current_word['en'])
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        if st.button("🔊 TAP TO LISTEN", key="play_btn", use_container_width=True):
+            play_audio(st.session_state.current_word['en'])
+            st.toast("🔊 Playing...", icon="🎵")
 
-    cols = st.columns(3)
-    for i, option in enumerate(st.session_state.options):
-        # Ищем эмодзи для варианта
+    st.markdown("")  # Spacer
+
+    # Display 6 options in 2 columns x 3 rows
+    cols = st.columns(2, gap="medium")
+    for i, option in enumerate(st.session_state.options[:6]):
         row = df[df['word'] == option].iloc[0]
-        emoji = str(row['emoji']).strip() if pd.notna(row['emoji']) and str(row['emoji']).strip() != "" else ""
+        emoji_value = str(row['emoji']).strip() if pd.notna(row['emoji']) else ""
+        display = get_display_element(option, emoji_value)
+        is_emoji = len(display) <= 2 and ord(display[0]) > 127  # Unicode emoji check
         
-        with cols[i]:
-            if emoji:
-                st.markdown(f'<div class="emoji-card">{emoji}</div>', unsafe_allow_html=True)
+        col_idx = i % 2
+        with cols[col_idx]:
+            if is_emoji:
+                button_html = f"""
+                    <button style="
+                        width: 100%;
+                        height: 140px;
+                        font-size: 70px;
+                        border: 3px solid #e2e8f0;
+                        border-radius: 15px;
+                        background-color: white;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+                        margin-bottom: 20px;
+                    " onclick="document.getElementById('btn_{i}').click()">
+                        {display}
+                    </button>
+                """
             else:
-                # Если эмодзи нет — рисуем букву
-                letter = option[0].upper()
-                st.markdown(f'<div class="emoji-card letter-placeholder">{letter}</div>', unsafe_allow_html=True)
+                button_html = f"""
+                    <button style="
+                        width: 100%;
+                        height: 140px;
+                        font-size: 60px;
+                        border: 3px solid #e2e8f0;
+                        border-radius: 15px;
+                        background: linear-gradient(135deg, #0369a1 0%, #06b6d4 100%);
+                        color: white;
+                        font-weight: bold;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+                        margin-bottom: 20px;
+                    " onclick="document.getElementById('btn_{i}').click()">
+                        {display}
+                    </button>
+                """
             
-            if st.button("Это?", key=f"btn_{i}"):
+            st.markdown(button_html, unsafe_allow_html=True)
+            
+            # Hidden button for logic
+            if st.button("", key=f"btn_{i}", label_visibility="collapsed"):
                 if option == st.session_state.current_word['en']:
                     st.session_state.status = "correct"
                 else:
                     st.session_state.status = "wrong"
+                st.rerun()
 
     if st.session_state.status == "correct":
         st.balloons()
-        st.success("ПРАВИЛЬНО! 🎉")
-        if st.button("СЛЕДУЮЩЕЕ ➡️", use_container_width=True, type="primary"):
-            st.session_state.current_word = None
-            st.session_state.status = None
-            st.rerun()
+        st.success("✅ CORRECT! Great job!", icon="🎉")
+        col1, col2, col3 = st.columns([1, 1, 1])
+        with col2:
+            if st.button("NEXT ➡️", key="next_btn", use_container_width=True):
+                st.session_state.current_word = None
+                st.session_state.status = None
+                st.rerun()
     elif st.session_state.status == "wrong":
-        st.error("Попробуй еще раз! ❌")
+        st.error("❌ Try again!", icon="💪")
 
 except Exception as e:
-    st.error(f"Обновите таблицу! Ошибка: {e}")
+    st.error(f"Error loading data. Check the spreadsheet! ❌\n\n{e}")
