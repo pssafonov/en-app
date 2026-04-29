@@ -201,7 +201,7 @@ try:
             st.markdown(button_html, unsafe_allow_html=True)
             
             # Hidden button for logic
-            if st.button("", key=f"btn_{i}", label_visibility="collapsed"):
+            if st.button("", key=f"btn_{i}"):
                 if option == st.session_state.current_word['en']:
                     st.session_state.status = "correct"
                 else:
